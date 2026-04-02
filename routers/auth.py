@@ -4,8 +4,13 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from db.connection import newSession
 from db.models import User
-from .password import PasswordHelpers
-from .token import JWTTokenClass
+from auth.password import PasswordHelpers
+from auth.token import JWTTokenClass
+from dotenv import load_dotenv
+import os
+from db.enums import UserRole
+
+load_dotenv()
 
 router=APIRouter(
     prefix='/auth',
@@ -43,10 +48,11 @@ def register(data:OAuth2PasswordRequestForm=Depends(),db:Session=Depends(newSess
             status_code=status.HTTP_406_NOT_ACCEPTABLE,
             detail={'message':'User already exists with this username','suggestion':'Try logging in'}
         )
-
+    role = UserRole.ADMIN if data.username == os.environ.get('ADMIN_USERNAME') else UserRole.VIEWER
     new_user=User(
         username=data.username,
-        password=PasswordHelpers.hash_password(data.password)
+        password=PasswordHelpers.hash_password(data.password),
+        role=role
     )
     db.add(new_user)
     db.commit()
