@@ -9,7 +9,7 @@ from db.enums import UserRole
 
 router=APIRouter(prefix="/users",tags=["Users"])
 
-@router.get("/{user_id}")
+@router.get("/{user_id}",summary='Permission Level-ADMIN')
 def get_user_by_id(user_id:int,username:str=Depends(JWTTokenClass.get_user),db:Session=Depends(newSession)):
     role=get_user_role_from_db(username,db)
     if role !=UserRole.ADMIN:
@@ -32,7 +32,7 @@ def get_user_by_id(user_id:int,username:str=Depends(JWTTokenClass.get_user),db:S
         'is_active':user.is_active
     }
 
-@router.patch("/{user_id}")
+@router.patch("/{user_id}",summary='Permission Level-ADMIN')
 def admin_update_user(user_id:int,username:str=Depends(JWTTokenClass.get_user),db:Session=Depends(newSession),role:UserRole|None=None,is_active:bool|None=None):
     user_role=get_user_role_from_db(username,db)
     if user_role !=UserRole.ADMIN:

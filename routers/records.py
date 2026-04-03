@@ -12,42 +12,8 @@ from utils.validation_models.financial_record import FinancialRecordCreateValida
 router=APIRouter(
     prefix="/records",
     tags=["Financial Records"]
-)
-
-@router.post("",status_code=status.HTTP_201_CREATED)
-def create_record(record:FinancialRecordCreateValidation,username:str=Depends(JWTTokenClass.get_user),db:Session=Depends(newSession)):
-
-    role=get_user_role_from_db(username,db)
-    if role not in (UserRole.ANALYST,UserRole.ADMIN):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Viewers cannot create financial records.",
-        )
-
-    owner=db.query(User).filter(User.username==username).first()
-
-    record=FinancialRecord(
-        user_id=owner.id,
-        amount=record.amount,
-        type=record.type,
-        category=record.category,
-        description=record.description,
-    )
-    db.add(record)
-    db.commit()
-    db.refresh(record)
-
-    return {
-        'message':'record added successfully',
-        'details':{
-            'user_id':owner.id,
-            'amount':record.amount,
-            'type':record.type,
-            'category':record.category
-        }
-    }
-    
-@router.get("")
+)    
+@router.get("",summary='Permission Level-ADMIN/ANALYST/VIEWER')
 def list_records(
     type:TransactionType | None=Query(default=None),
     category:TransactionCategory | None=Query(default=None),
@@ -93,7 +59,40 @@ def list_records(
         ]
     }
     
-@router.get("/{record_id}")
+@router.post("",status_code=status.HTTP_201_CREATED,summary='Permission Level-ADMIN/ANALYST')
+def create_record(record:FinancialRecordCreateValidation,username:str=Depends(JWTTokenClass.get_user),db:Session=Depends(newSession)):
+
+    role=get_user_role_from_db(username,db)
+    if role not in (UserRole.ANALYST,UserRole.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Viewers cannot create financial records.",
+        )
+
+    owner=db.query(User).filter(User.username==username).first()
+
+    record=FinancialRecord(
+        user_id=owner.id,
+        amount=record.amount,
+        type=record.type,
+        category=record.category,
+        description=record.description,
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
+    return {
+        'message':'record added successfully',
+        'details':{
+            'user_id':owner.id,
+            'amount':record.amount,
+            'type':record.type,
+            'category':record.category
+        }
+    }
+
+@router.get("/{record_id}",summary='Permission Level-ADMIN/ANALYST/VIEWER')
 def get_record(record_id:int,username:str=Depends(JWTTokenClass.get_user),db:Session=Depends(newSession)):
 
     record=db.query(FinancialRecord).filter(FinancialRecord.id == record_id).first()
@@ -116,11 +115,7 @@ def get_record(record_id:int,username:str=Depends(JWTTokenClass.get_user),db:Ses
         }
     }
 
-
-# ---------------------------------------------------------------------------
-# PATCH /records/{record_id}  (ADMIN,ANALYST)
-# ---------------------------------------------------------------------------
-@router.patch("/{record_id}")
+@router.patch("/{record_id}",summary='Permission Level-ADMIN/ANALYST')
 def update_record(record_id:int,payload:FinancialRecordUpdateValidation,username:str=Depends(JWTTokenClass.get_user),db:Session=Depends(newSession),):
     role=get_user_role_from_db(username,db)
     if role not in (UserRole.ANALYST,UserRole.ADMIN):
@@ -153,7 +148,6 @@ def update_record(record_id:int,payload:FinancialRecordUpdateValidation,username
         "message":"record updated successfully",
         "details":{
             "id":record.id,
-            "user_id":record.user_id,
             "amount":record.amount,
             "type":record.type,
             "category":record.category,
@@ -162,7 +156,7 @@ def update_record(record_id:int,payload:FinancialRecordUpdateValidation,username
         }
     }
 
-@router.delete("/{record_id}")
+@router.delete("/{record_id}",summary='Permission Level-ADMIN')
 def delete_record(record_id:int,username:str=Depends(JWTTokenClass.get_user),db:Session=Depends(newSession),):
     role=get_user_role_from_db(username,db)
     if role != UserRole.ADMIN:
