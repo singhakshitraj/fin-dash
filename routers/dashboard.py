@@ -99,3 +99,44 @@ def get_by_category(username:str=Depends(JWTTokenClass.get_user),db:Session=Depe
         "message":"categorywise breakdown fetched",
         "details":breakdown
     }
+
+@router.get("/trends/weekly",summary='Permission Level-ADMIN/ANALYST')
+def get_weekly_trends(username:str=Depends(JWTTokenClass.get_user),db:Session=Depends(newSession)):
+    role=get_user_role_from_db(username,db)
+    if role not in (UserRole.ANALYST,UserRole.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Weekly trends are available to analysts and admins only."
+        )
+
+    week_start=func.date_trunc('week',FinancialRecord.date)
+    
+    rows=db.query(
+        week_start.label("week"),
+        FinancialRecord.type,
+        func.sum(FinancialRecord.amount).label("total"),
+    ).group_by(week_start,FinancialRecord.type).order_by(week_start.desc()).all()
+
+    trends_map=defaultdict(lambda:{"total_income":0.0,"total_expenses":0.0})
+
+    for row in rows:
+        week_label=row.week.strftime("%Y-%m-%d")
+        if row.type==TransactionType.INCOME:
+            trends_map[week_label]["total_income"] +=float(row.total or 0)
+        else:
+            trends_map[week_label]["total_expenses"] +=float(row.total or 0)
+
+    details=[
+        {
+            "week_start":week,
+            "total_income":round(vals["total_income"],2),
+            "total_expenses":round(vals["total_expenses"],2),
+            "net":round(vals["total_income"] - vals["total_expenses"],2),
+        }
+        for week,vals in sorted(trends_map.items(),reverse=True)
+    ]
+
+    return {
+        "message":"weekly trends fetched successfully",
+        "details":details
+    }
